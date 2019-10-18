@@ -8,22 +8,17 @@
 #include <linux/kallsyms.h>
 #include <linux/sched.h>
 
-// exit函数有问题时，替换exit，成功exit，如果没问题，将此行注释
-#define CONFIG_REPLACE_EXIT_FUNCTION 12
+static int replace = 0;
+static char *modname = NULL;
 
-#ifdef CONFIG_REPLACE_EXIT_FUNCTION
 void force_replace_exit_module_function(void) {
     printk("target module exit success");
 }
-#endif
 
 static int force_cleanup_module(char *del_mod_name) {
     struct module *mod = NULL, *relate = NULL;
     int cpu = 0;
-
-#ifdef CONFIG_REPLACE_EXIT_FUNCTION
     void *origin_exit_addr = NULL;
-#endif
 
     struct module *list_mod = NULL;
     /*  遍历模块列表, 查找 del_mod_name 模块  */
@@ -41,7 +36,6 @@ static int force_cleanup_module(char *del_mod_name) {
     // 如果有其他驱动依赖于当前驱动, 则不能强制卸载, 立刻退出
     // 如果有其他模块依赖于 del_mod
     if (!list_empty(&mod->source_list)) {
-        /*  打印出所有依赖target的模块名  */
         list_for_each_entry(relate, &mod->source_list, source_list) {
             printk("[relate]:%s\n", relate->name);
         }
@@ -62,12 +56,11 @@ static int force_cleanup_module(char *del_mod_name) {
     }
     atomic_set(&mod->refcnt, 1);
 
-#ifdef CONFIG_REPLACE_EXIT_FUNCTION
-    // 替换exit函数
-    printk("replace exit function\n");
-    origin_exit_addr = mod->exit;
-    mod->exit = force_replace_exit_module_function;
-#endif
+    if (replace != 0) {
+        printk("replace exit function\n");
+        origin_exit_addr = mod->exit;
+        mod->exit = force_replace_exit_module_function;
+    }
 
     printk("[after] name:%s, state:%d, refcnt:%u\n", mod->name, mod->state, module_refcount(mod));
     return 0;
@@ -86,5 +79,7 @@ static void __exit force_rmmod_exit(void)
 
 module_init(force_rmmod_init);
 module_exit(force_rmmod_exit);
+module_param(replace, int, 0644);
+module_param(modname, charp, 0644);
 
 MODULE_LICENSE("GPL");
