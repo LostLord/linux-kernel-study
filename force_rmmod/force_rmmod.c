@@ -8,7 +8,7 @@
 #include <linux/kallsyms.h>
 #include <linux/sched.h>
 
-static int replace = 0;
+static int replace = 1;
 static char *modname = NULL;
 
 void force_replace_exit_module_function(void) {
@@ -68,7 +68,7 @@ static int force_cleanup_module(char *del_mod_name) {
 
 static int __init force_rmmod_init(void)
 {
-    return force_cleanup_module("my_modules");
+    return force_cleanup_module(modname);
 }
 
 
